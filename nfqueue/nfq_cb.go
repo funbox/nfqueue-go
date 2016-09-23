@@ -20,14 +20,10 @@ Notes:
 
 This function must _nerver_ be called directly.
 */
-/*
-BUG(GoCallbackWrapper): The return value from the Go callback is used as a
-verdict. This works, and avoids packets without verdict to be queued, but
-prevents using out-of-order replies.
-*/
-//export GoCallbackWrapper
-func GoCallbackWrapper(ptr_q *unsafe.Pointer, ptr_nfad *unsafe.Pointer) int {
-	q := (*Queue)(unsafe.Pointer(ptr_q))
-	payload := build_payload(q.c_qh, ptr_nfad)
-	return q.cb(payload)
+
+//export goCallbackWrapper
+func goCallbackWrapper(ptrQ *unsafe.Pointer, ptrNfad *unsafe.Pointer) {
+	q := (*Queue)(unsafe.Pointer(ptrQ))
+	payload := buildPayload(q.cQh, ptrNfad)
+	q.cb(payload)
 }

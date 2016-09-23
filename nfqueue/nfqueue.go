@@ -1,59 +1,13 @@
-// Go bindings for the NFQUEUE netfilter target
+// Package nfqueue gives Go bindings for the NFQUEUE netfilter target
 // libnetfilter_queue is a userspace library providing an API to access packets
 // that have been queued by the Linux kernel packet filter.
 //
 // This provides an easy way to filter packets from userspace, and use tools
 // or libraries that are not accessible from kernelspace.
-//
-// BUG(nfqueue): This package currently displays lots of debug information
 package nfqueue
 
-// XXX we should use something like
-// pkg-config --libs libnetfilter_queue
-
 // #cgo pkg-config: libnetfilter_queue
-/*
-#include <stdio.h>
-#include <stdint.h>
-#include <arpa/inet.h>
-#include <linux/netfilter.h>
-#include <libnetfilter_queue/libnetfilter_queue.h>
-
-extern int GoCallbackWrapper(void *data, void *nfad);
-
-int _process_loop(struct nfq_handle *h,
-                  int fd,
-                  int flags,
-                  int max_count) {
-        int rv;
-        char buf[65535];
-        int count;
-
-        count = 0;
-
-        while ((rv = recv(fd, buf, sizeof(buf), flags)) >= 0) {
-                nfq_handle_packet(h, buf, rv);
-                count++;
-                if (max_count > 0 && count >= max_count) {
-                        break;
-                }
-        }
-        return count;
-}
-
-int c_nfq_cb(struct nfq_q_handle *qh,
-             struct nfgenmsg *nfmsg,
-             struct nfq_data *nfad, void *data) {
-    return GoCallbackWrapper(data, nfad);
-}
-
-// wrap nfq_get_payload so cgo always have the same prototype
-// (libnetfilter_queue 0.17 uses a signed char)
-static int _c_get_payload (struct nfq_data *nfad, unsigned char **data)
-{
-    return nfq_get_payload (nfad, data);
-}
-*/
+// #include <netfilter.h>
 import "C"
 
 import (
@@ -61,41 +15,50 @@ import (
 	"unsafe"
 )
 
+// ErrNotInitialized means queue is not initialized
 var ErrNotInitialized = errors.New("nfqueue: queue not initialized")
+// ErrOpenFailed means nfqueue open failed
 var ErrOpenFailed = errors.New("nfqueue: open failed")
+// ErrRuntime means runtime error
 var ErrRuntime = errors.New("nfqueue: runtime error")
 
-var NF_DROP = C.NF_DROP
-var NF_ACCEPT = C.NF_ACCEPT
-var NF_QUEUE = C.NF_QUEUE
-var NF_REPEAT = C.NF_REPEAT
-var NF_STOP = C.NF_STOP
+// NFDrop flag
+var NFDrop = C.NF_DROP
+// NFAccept flag
+var NFAccept = C.NF_ACCEPT
+// NFQueue flag
+var NFQueue = C.NF_QUEUE
+// NFRepeat flag
+var NFRepeat = C.NF_REPEAT
+// NFStop flag
+var NFStop = C.NF_STOP
 
-var NFQNL_COPY_NONE uint8 = C.NFQNL_COPY_NONE
-var NFQNL_COPY_META uint8 = C.NFQNL_COPY_META
-var NFQNL_COPY_PACKET uint8 = C.NFQNL_COPY_PACKET
+// NFQNLCopyNone flag
+var NFQNLCopyNone = uint8(C.NFQNL_COPY_NONE)
+// NFQNLCopyMeta flag
+var NFQNLCopyMeta = uint8(C.NFQNL_COPY_META)
+// NFQNLCopyPacket flag
+var NFQNLCopyPacket = uint8(C.NFQNL_COPY_PACKET)
 
-// Prototype for a NFQUEUE callback.
-// The callback receives the NFQUEUE ID of the packet, and
-// the packet payload.
+// Callback receives the NFQUEUE ID of the packet, and the packet payload.
 // Packet data start from the IP layer (ethernet information are not included).
 // It must return the verdict for the packet.
-type Callback func(*Payload) int
+type Callback func(*Payload)
 
 // Queue is an opaque structure describing a connection to a kernel NFQUEUE,
 // and the associated Go callback.
 type Queue struct {
-	c_h  (*C.struct_nfq_handle)
-	c_qh (*C.struct_nfq_q_handle)
+	cH  (*C.struct_nfq_handle)
+	cQh (*C.struct_nfq_q_handle)
 
-	cb Callback
+	cb  Callback
 }
 
 // Init creates a netfilter queue which can be used to receive packets
 // from the kernel.
 func (q *Queue) Init() error {
-	q.c_h = C.nfq_open()
-	if q.c_h == nil {
+	q.cH = C.nfq_open()
+	if q.cH == nil {
 		return ErrOpenFailed
 	}
 	return nil
@@ -107,59 +70,59 @@ func (q *Queue) SetCallback(cb Callback) error {
 	return nil
 }
 
+// Close closes netfilter queue
 func (q *Queue) Close() {
-	if q.c_h != nil {
-		C.nfq_close(q.c_h)
-		q.c_h = nil
+	if q.cH != nil {
+		C.nfq_close(q.cH)
+		q.cH = nil
 	}
 }
 
 // Bind binds a Queue to a given protocol family.
 //
 // Usually, the family is syscall.AF_INET for IPv4, and syscall.AF_INET6 for IPv6
-func (q *Queue) Bind(af_family int) error {
-	if q.c_h == nil {
+func (q *Queue) Bind(afFamily int) error {
+	if q.cH == nil {
 		return ErrNotInitialized
 	}
 	/* Errors in nfq_bind_pf are non-fatal ...
 	 * This function just tells the kernel that nfnetlink_queue is
 	 * the chosen module to queue packets to userspace.
 	 */
-	_ = C.nfq_bind_pf(q.c_h, C.u_int16_t(af_family))
+	_ = C.nfq_bind_pf(q.cH, C.u_int16_t(afFamily))
 	return nil
 }
 
 // Unbind a queue from the given protocol family.
 //
 // Note that errors from this function can usually be ignored.
-func (q *Queue) Unbind(af_family int) error {
-	if q.c_h == nil {
+func (q *Queue) Unbind(afFamily int) error {
+	if q.cH == nil {
 		return ErrNotInitialized
 	}
-	rc := C.nfq_unbind_pf(q.c_h, C.u_int16_t(af_family))
+	rc := C.nfq_unbind_pf(q.cH, C.u_int16_t(afFamily))
 	if rc < 0 {
 		return ErrRuntime
 	}
 	return nil
 }
 
-// Create a new queue handle
-//
+// CreateQueue creates a new queue handle
 // The queue must be initialized (using Init) and bound (using Bind), and
 // a callback function must be set (using SetCallback).
-func (q *Queue) CreateQueue(queue_num int) error {
-	if q.c_h == nil {
+func (q *Queue) CreateQueue(queueNum int) error {
+	if q.cH == nil {
 		return ErrNotInitialized
 	}
 	if q.cb == nil {
 		return ErrNotInitialized
 	}
-	q.c_qh = C.nfq_create_queue(q.c_h, C.u_int16_t(queue_num), (*C.nfq_callback)(C.c_nfq_cb), unsafe.Pointer(q))
-	if q.c_qh == nil {
+	q.cQh = C.nfq_create_queue(q.cH, C.u_int16_t(queueNum), (*C.nfq_callback)(C.c_nfq_cb), unsafe.Pointer(q))
+	if q.cQh == nil {
 		return ErrRuntime
 	}
 	// Default mode
-	C.nfq_set_mode(q.c_qh, C.NFQNL_COPY_PACKET, 0xffff)
+	C.nfq_set_mode(q.cQh, C.NFQNL_COPY_PACKET, 0xffff)
 	return nil
 }
 
@@ -167,67 +130,67 @@ func (q *Queue) CreateQueue(queue_num int) error {
 //
 // Default mode is NFQNL_COPY_PACKET
 func (q *Queue) SetMode(mode uint8) error {
-	if q.c_h == nil {
+	if q.cH == nil {
 		return ErrNotInitialized
 	}
-	if q.c_qh == nil {
+	if q.cQh == nil {
 		return ErrNotInitialized
 	}
-	C.nfq_set_mode(q.c_qh, C.u_int8_t(mode), 0xffff)
+	C.nfq_set_mode(q.cQh, C.u_int8_t(mode), 0xffff)
 	return nil
 }
 
-// Main loop: TryRun starts an infinite loop, receiving kernel events
+// TryRun starts an infinite loop, receiving kernel events
 // and processing packets using the callback function.
 //
 // BUG(TryRun): The TryRun function really is an infinite loop.
 func (q *Queue) TryRun() error {
-	if q.c_h == nil {
+	if q.cH == nil {
 		return ErrNotInitialized
 	}
-	if q.c_qh == nil {
+	if q.cQh == nil {
 		return ErrNotInitialized
 	}
 	if q.cb == nil {
 		return ErrNotInitialized
 	}
-	fd := C.nfq_fd(q.c_h)
+	fd := C.nfq_fd(q.cH)
 	if fd < 0 {
 		return ErrRuntime
 	}
 	// XXX
-	C._process_loop(q.c_h, fd, 0, -1)
+	C._process_loop(q.cH, fd, 0, -1)
 	return nil
 }
 
 // Payload is a structure describing a packet received from the kernel
 type Payload struct {
-	c_qh (*C.struct_nfq_q_handle)
+	cQh  (*C.struct_nfq_q_handle)
 	nfad *C.struct_nfq_data
 
 	// NFQueue ID of the packet
-	Id uint32
+	ID   uint32
 	// Packet data
 	Data []byte
 }
 
-func build_payload(c_qh *C.struct_nfq_q_handle, ptr_nfad *unsafe.Pointer) *Payload {
-	var payload_data *C.uchar
+func buildPayload(cQh *C.struct_nfq_q_handle, ptrNfad *unsafe.Pointer) *Payload {
+	var payloadData *C.uchar
 	var data []byte
 
-	nfad := (*C.struct_nfq_data)(unsafe.Pointer(ptr_nfad))
+	nfad := (*C.struct_nfq_data)(unsafe.Pointer(ptrNfad))
 
 	ph := C.nfq_get_msg_packet_hdr(nfad)
 	id := C.ntohl(C.uint32_t(ph.packet_id))
-	payload_len := C._c_get_payload(nfad, &payload_data)
-	if payload_len >= 0 {
-		data = C.GoBytes(unsafe.Pointer(payload_data), C.int(payload_len))
+	payloadLen := C.nfq_get_payload(nfad, &payloadData)
+	if payloadLen >= 0 {
+		data = C.GoBytes(unsafe.Pointer(payloadData), C.int(payloadLen))
 	}
 
 	p := new(Payload)
-	p.c_qh = c_qh
+	p.cQh = cQh
 	p.nfad = nfad
-	p.Id = uint32(id)
+	p.ID = uint32(id)
 	p.Data = data
 
 	return p
@@ -237,7 +200,7 @@ func build_payload(c_qh *C.struct_nfq_q_handle, ptr_nfad *unsafe.Pointer) *Paylo
 //
 // Every queued packet _must_ have a verdict specified by userspace.
 func (p *Payload) SetVerdict(verdict int) error {
-	C.nfq_set_verdict(p.c_qh, C.u_int32_t(p.Id), C.u_int32_t(verdict), 0, nil)
+	C.nfq_set_verdict(p.cQh, C.u_int32_t(p.ID), C.u_int32_t(verdict), 0, nil)
 	return nil
 }
 
@@ -247,8 +210,8 @@ func (p *Payload) SetVerdict(verdict int) error {
 // Every queued packet _must_ have a verdict specified by userspace.
 func (p *Payload) SetVerdictModified(verdict int, data []byte) error {
 	C.nfq_set_verdict(
-		p.c_qh,
-		C.u_int32_t(p.Id),
+		p.cQh,
+		C.u_int32_t(p.ID),
 		C.u_int32_t(verdict),
 		C.u_int32_t(len(data)),
 		(*C.uchar)(unsafe.Pointer(&data[0])),
@@ -256,27 +219,56 @@ func (p *Payload) SetVerdictModified(verdict int, data []byte) error {
 	return nil
 }
 
-// Returns the packet mark
+// SetVerdictMark issues a verdict for a packet, but a mark can be set
+//
+// Every queued packet _must_ have a verdict specified by userspace.
+func (p *Payload) SetVerdictMark(verdict int, mark uint32) error {
+	C.nfq_set_verdict2(
+		p.cQh,
+		C.u_int32_t(p.ID),
+		C.u_int32_t(verdict),
+		C.u_int32_t(mark),
+		0, nil)
+	return nil
+}
+
+// SetVerdictMarkModified issues a verdict for a packet, but replaces the
+// packet with the provided one, and a mark can be set.
+//
+// Every queued packet _must_ have a verdict specified by userspace.
+func (p *Payload) SetVerdictMarkModified(verdict int, mark uint32, data []byte) error {
+	C.nfq_set_verdict2(
+		p.cQh,
+		C.u_int32_t(p.ID),
+		C.u_int32_t(verdict),
+		C.u_int32_t(mark),
+		C.u_int32_t(len(data)),
+		(*C.uchar)(unsafe.Pointer(&data[0])),
+	)
+	return nil
+}
+
+// GetNFMark returns the packet mark
 func (p *Payload) GetNFMark() uint32 {
 	return uint32(C.nfq_get_nfmark(p.nfad))
 }
 
-// Returns the interface that the packet was received through
+// GetInDev returns the interface that the packet was received through
 func (p *Payload) GetInDev() uint32 {
 	return uint32(C.nfq_get_indev(p.nfad))
 }
 
-// Returns the interface that the packet will be routed out
+// GetOutDev returns the interface that the packet will be routed out
 func (p *Payload) GetOutDev() uint32 {
 	return uint32(C.nfq_get_outdev(p.nfad))
 }
 
-// Returns the physical interface that the packet was received through
+// GetPhysInDev returns the physical interface that the packet was received through
 func (p *Payload) GetPhysInDev() uint32 {
 	return uint32(C.nfq_get_physindev(p.nfad))
 }
 
-// Returns the physical interface that the packet will be routed out
+// GetPhysOutDev returns the physical interface that the packet will be routed out
 func (p *Payload) GetPhysOutDev() uint32 {
 	return uint32(C.nfq_get_physoutdev(p.nfad))
 }

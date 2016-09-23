@@ -7,25 +7,24 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/chifflier/nfqueue-go/nfqueue"
+	"github.com/funbox/nfqueue-go/nfqueue"
 )
 
-func real_callback(payload *nfqueue.Payload) int {
+func realCallback(payload *nfqueue.Payload) {
 	fmt.Println("Real callback")
-	fmt.Printf("  id: %d\n", payload.Id)
+	fmt.Printf("  id: %d\n", payload.ID)
 	fmt.Printf("  mark: %d\n", payload.GetNFMark())
 	fmt.Printf("  in  %d      out  %d\n", payload.GetInDev(), payload.GetOutDev())
 	fmt.Printf("  Φin %d      Φout %d\n", payload.GetPhysInDev(), payload.GetPhysOutDev())
 	fmt.Println(hex.Dump(payload.Data))
 	fmt.Println("-- ")
-	payload.SetVerdict(nfqueue.NF_ACCEPT)
-	return 0
+	payload.SetVerdict(nfqueue.NFAccept)
 }
 
 func main() {
 	q := new(nfqueue.Queue)
 
-	q.SetCallback(real_callback)
+	q.SetCallback(realCallback)
 
 	q.Init()
 	defer q.Close()
@@ -34,7 +33,7 @@ func main() {
 	q.Bind(syscall.AF_INET)
 
 	q.CreateQueue(0)
-	q.SetMode(nfqueue.NFQNL_COPY_PACKET)
+	q.SetMode(nfqueue.NFQNLCopyPacket)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)

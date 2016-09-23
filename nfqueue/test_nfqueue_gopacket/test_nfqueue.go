@@ -7,15 +7,15 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/chifflier/nfqueue-go/nfqueue"
+	"github.com/funbox/nfqueue-go/nfqueue"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 )
 
-func real_callback(payload *nfqueue.Payload) int {
+func realCallback(payload *nfqueue.Payload) {
 	fmt.Println("Real callback")
-	fmt.Printf("  id: %d\n", payload.Id)
+	fmt.Printf("  id: %d\n", payload.ID)
 	fmt.Println(hex.Dump(payload.Data))
 	// Decode a packet
 	packet := gopacket.NewPacket(payload.Data, layers.LayerTypeIPv4, gopacket.Default)
@@ -32,14 +32,13 @@ func real_callback(payload *nfqueue.Payload) int {
 		fmt.Println(gopacket.LayerDump(layer))
 	}
 	fmt.Println("-- ")
-	payload.SetVerdict(nfqueue.NF_ACCEPT)
-	return 0
+	payload.SetVerdict(nfqueue.NFAccept)
 }
 
 func main() {
 	q := new(nfqueue.Queue)
 
-	q.SetCallback(real_callback)
+	q.SetCallback(realCallback)
 
 	q.Init()
 	defer q.Close()
