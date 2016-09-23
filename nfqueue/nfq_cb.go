@@ -1,7 +1,7 @@
 package nfqueue
 
 import (
-    "unsafe"
+	"unsafe"
 )
 
 import "C"
@@ -27,9 +27,7 @@ prevents using out-of-order replies.
 */
 //export GoCallbackWrapper
 func GoCallbackWrapper(ptr_q *unsafe.Pointer, ptr_nfad *unsafe.Pointer) int {
-    q := (*Queue)(unsafe.Pointer(ptr_q))
-    payload := build_payload(q.c_qh, ptr_nfad)
-    return q.cb(payload)
+	q := (*Queue)(unsafe.Pointer(ptr_q))
+	payload := build_payload(q.c_qh, ptr_nfad)
+	return q.cb(payload)
 }
-
-
