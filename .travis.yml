@@ -1,12 +1,24 @@
 language: go
 
 go:
-  - 1.6
+  - 1.6.3
+  - 1.7.1
   - tip
+
+branches:
+  only:
+  - master
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - go: tip
+
 install:
- - go get github.com/google/gopacket
- - go get github.com/google/gopacket/layers
- - go get github.com/chifflier/nfqueue-go/nfqueue
+  - go get -v github.com/google/gopacket
+  - go get -v github.com/google/gopacket/layers
+  - go get -v github.com/funbox/nfqueue-go/nfqueue
+
 before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y pkg-config libnfnetlink-dev libnetfilter-queue-dev

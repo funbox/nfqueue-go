@@ -17,26 +17,34 @@ import (
 
 // ErrNotInitialized means queue is not initialized
 var ErrNotInitialized = errors.New("nfqueue: queue not initialized")
+
 // ErrOpenFailed means nfqueue open failed
 var ErrOpenFailed = errors.New("nfqueue: open failed")
+
 // ErrRuntime means runtime error
 var ErrRuntime = errors.New("nfqueue: runtime error")
 
 // NFDrop flag
 var NFDrop = C.NF_DROP
+
 // NFAccept flag
 var NFAccept = C.NF_ACCEPT
+
 // NFQueue flag
 var NFQueue = C.NF_QUEUE
+
 // NFRepeat flag
 var NFRepeat = C.NF_REPEAT
+
 // NFStop flag
 var NFStop = C.NF_STOP
 
 // NFQNLCopyNone flag
 var NFQNLCopyNone = uint8(C.NFQNL_COPY_NONE)
+
 // NFQNLCopyMeta flag
 var NFQNLCopyMeta = uint8(C.NFQNL_COPY_META)
+
 // NFQNLCopyPacket flag
 var NFQNLCopyPacket = uint8(C.NFQNL_COPY_PACKET)
 
@@ -51,16 +59,18 @@ type Queue struct {
 	cH  (*C.struct_nfq_handle)
 	cQh (*C.struct_nfq_q_handle)
 
-	cb  Callback
+	cb Callback
 }
 
 // Init creates a netfilter queue which can be used to receive packets
 // from the kernel.
 func (q *Queue) Init() error {
 	q.cH = C.nfq_open()
+
 	if q.cH == nil {
 		return ErrOpenFailed
 	}
+
 	return nil
 }
 
@@ -85,11 +95,13 @@ func (q *Queue) Bind(afFamily int) error {
 	if q.cH == nil {
 		return ErrNotInitialized
 	}
+
 	/* Errors in nfq_bind_pf are non-fatal ...
 	 * This function just tells the kernel that nfnetlink_queue is
 	 * the chosen module to queue packets to userspace.
 	 */
 	_ = C.nfq_bind_pf(q.cH, C.u_int16_t(afFamily))
+
 	return nil
 }
 
@@ -100,10 +112,13 @@ func (q *Queue) Unbind(afFamily int) error {
 	if q.cH == nil {
 		return ErrNotInitialized
 	}
+
 	rc := C.nfq_unbind_pf(q.cH, C.u_int16_t(afFamily))
+
 	if rc < 0 {
 		return ErrRuntime
 	}
+
 	return nil
 }
 
@@ -114,15 +129,20 @@ func (q *Queue) CreateQueue(queueNum int) error {
 	if q.cH == nil {
 		return ErrNotInitialized
 	}
+
 	if q.cb == nil {
 		return ErrNotInitialized
 	}
+
 	q.cQh = C.nfq_create_queue(q.cH, C.u_int16_t(queueNum), (*C.nfq_callback)(C.c_nfq_cb), unsafe.Pointer(q))
+
 	if q.cQh == nil {
 		return ErrRuntime
 	}
+
 	// Default mode
 	C.nfq_set_mode(q.cQh, C.NFQNL_COPY_PACKET, 0xffff)
+
 	return nil
 }
 
@@ -133,10 +153,13 @@ func (q *Queue) SetMode(mode uint8) error {
 	if q.cH == nil {
 		return ErrNotInitialized
 	}
+
 	if q.cQh == nil {
 		return ErrNotInitialized
 	}
+
 	C.nfq_set_mode(q.cQh, C.u_int8_t(mode), 0xffff)
+
 	return nil
 }
 
@@ -148,18 +171,24 @@ func (q *Queue) TryRun() error {
 	if q.cH == nil {
 		return ErrNotInitialized
 	}
+
 	if q.cQh == nil {
 		return ErrNotInitialized
 	}
+
 	if q.cb == nil {
 		return ErrNotInitialized
 	}
+
 	fd := C.nfq_fd(q.cH)
+
 	if fd < 0 {
 		return ErrRuntime
 	}
+
 	// XXX
 	C._process_loop(q.cH, fd, 0, -1)
+
 	return nil
 }
 
@@ -168,10 +197,8 @@ type Payload struct {
 	cQh  (*C.struct_nfq_q_handle)
 	nfad *C.struct_nfq_data
 
-	// NFQueue ID of the packet
-	ID   uint32
-	// Packet data
-	Data []byte
+	ID   uint32 // NFQueue ID of the packet
+	Data []byte // Packet data
 }
 
 func buildPayload(cQh *C.struct_nfq_q_handle, ptrNfad *unsafe.Pointer) *Payload {
@@ -183,6 +210,7 @@ func buildPayload(cQh *C.struct_nfq_q_handle, ptrNfad *unsafe.Pointer) *Payload 
 	ph := C.nfq_get_msg_packet_hdr(nfad)
 	id := C.ntohl(C.uint32_t(ph.packet_id))
 	payloadLen := C.nfq_get_payload(nfad, &payloadData)
+
 	if payloadLen >= 0 {
 		data = C.GoBytes(unsafe.Pointer(payloadData), C.int(payloadLen))
 	}
@@ -201,6 +229,7 @@ func buildPayload(cQh *C.struct_nfq_q_handle, ptrNfad *unsafe.Pointer) *Payload 
 // Every queued packet _must_ have a verdict specified by userspace.
 func (p *Payload) SetVerdict(verdict int) error {
 	C.nfq_set_verdict(p.cQh, C.u_int32_t(p.ID), C.u_int32_t(verdict), 0, nil)
+
 	return nil
 }
 
@@ -216,6 +245,7 @@ func (p *Payload) SetVerdictModified(verdict int, data []byte) error {
 		C.u_int32_t(len(data)),
 		(*C.uchar)(unsafe.Pointer(&data[0])),
 	)
+
 	return nil
 }
 
@@ -228,7 +258,9 @@ func (p *Payload) SetVerdictMark(verdict int, mark uint32) error {
 		C.u_int32_t(p.ID),
 		C.u_int32_t(verdict),
 		C.u_int32_t(mark),
-		0, nil)
+		0, nil,
+	)
+
 	return nil
 }
 
@@ -245,6 +277,7 @@ func (p *Payload) SetVerdictMarkModified(verdict int, mark uint32, data []byte) 
 		C.u_int32_t(len(data)),
 		(*C.uchar)(unsafe.Pointer(&data[0])),
 	)
+
 	return nil
 }
 

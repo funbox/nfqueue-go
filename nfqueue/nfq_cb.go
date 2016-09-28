@@ -24,6 +24,8 @@ This function must _nerver_ be called directly.
 //export goCallbackWrapper
 func goCallbackWrapper(ptrQ *unsafe.Pointer, ptrNfad *unsafe.Pointer) {
 	q := (*Queue)(unsafe.Pointer(ptrQ))
+
 	payload := buildPayload(q.cQh, ptrNfad)
+
 	q.cb(payload)
 }

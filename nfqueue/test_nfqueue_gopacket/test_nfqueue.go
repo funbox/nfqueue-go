@@ -17,8 +17,10 @@ func realCallback(payload *nfqueue.Payload) {
 	fmt.Println("Real callback")
 	fmt.Printf("  id: %d\n", payload.ID)
 	fmt.Println(hex.Dump(payload.Data))
+
 	// Decode a packet
 	packet := gopacket.NewPacket(payload.Data, layers.LayerTypeIPv4, gopacket.Default)
+
 	// Get the TCP layer from this packet
 	if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 		fmt.Println("This is a TCP packet!")
@@ -26,12 +28,15 @@ func realCallback(payload *nfqueue.Payload) {
 		tcp, _ := tcpLayer.(*layers.TCP)
 		fmt.Printf("From src port %d to dst port %d\n", tcp.SrcPort, tcp.DstPort)
 	}
+
 	// Iterate over all layers, printing out each layer type
 	for _, layer := range packet.Layers() {
 		fmt.Println("PACKET LAYER:", layer.LayerType())
 		fmt.Println(gopacket.LayerDump(layer))
 	}
+
 	fmt.Println("-- ")
+
 	payload.SetVerdict(nfqueue.NFAccept)
 }
 
@@ -50,6 +55,7 @@ func main() {
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
+
 	go func() {
 		for sig := range c {
 			// sig is a ^C, handle it
