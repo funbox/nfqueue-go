@@ -143,6 +143,8 @@ func (q *Queue) CreateQueue(queueNum int) error {
 	// Default mode
 	C.nfq_set_mode(q.cQh, C.NFQNL_COPY_PACKET, 0xffff)
 
+	C.nfq_set_queue_maxlen(q.cQh, 100000)
+
 	return nil
 }
 
@@ -161,6 +163,15 @@ func (q *Queue) SetMode(mode uint8) error {
 	C.nfq_set_mode(q.cQh, C.u_int8_t(mode), 0xffff)
 
 	return nil
+}
+
+func (q *Queue) SetNoEnobufs() {
+	var value int = 1
+	C.setsockopt(C.nfq_fd(q.cH), C.SOL_NETLINK, C.NETLINK_NO_ENOBUFS, unsafe.Pointer(&value), C.sizeof_int)
+}
+
+func (q *Queue) SetBufferSize(size uint32) {
+	C.nfnl_rcvbufsiz(C.nfq_nfnlh(q.cH), C.uint(size))
 }
 
 // TryRun starts an infinite loop, receiving kernel events
@@ -187,7 +198,11 @@ func (q *Queue) TryRun() error {
 	}
 
 	// XXX
-	C._process_loop(q.cH, fd, 0, -1)
+	result := C._process_loop(q.cH, fd, 0)
+
+	if result < 0 {
+		return ErrRuntime
+	}
 
 	return nil
 }
