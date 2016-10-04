@@ -143,8 +143,6 @@ func (q *Queue) CreateQueue(queueNum int) error {
 	// Default mode
 	C.nfq_set_mode(q.cQh, C.NFQNL_COPY_PACKET, 0xffff)
 
-	C.nfq_set_queue_maxlen(q.cQh, 100000)
-
 	return nil
 }
 

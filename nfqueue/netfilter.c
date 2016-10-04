@@ -21,6 +21,5 @@ int c_nfq_cb(struct nfq_q_handle *qh,
              struct nfgenmsg *nfmsg,
              struct nfq_data *nfad, void *data) {
     goCallbackWrapper(data, nfad);
-  
     return 0;
 }
