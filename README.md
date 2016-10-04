@@ -1,8 +1,4 @@
-# nfqueue-go
-
-[![Build Status](https://travis-ci.org/funbox/nfqueue-go.svg?branch=master)](https://travis-ci.org/funbox/nfqueue-go)
-[![Go Report Card](https://goreportcard.com/badge/github.com/funbox/nfqueue-go)](https://goreportcard.com/report/github.com/funbox/nfqueue-go)
-[![GoDoc](https://godoc.org/github.com/funbox/nfqueue-go?status.svg)](https://godoc.org/github.com/funbox/nfqueue-go/nfqueue)
+# nfqueue-go [![Build Status](https://travis-ci.org/funbox/nfqueue-go.svg?branch=master)](https://travis-ci.org/funbox/nfqueue-go) [![Go Report Card](https://goreportcard.com/badge/github.com/funbox/nfqueue-go)](https://goreportcard.com/report/github.com/funbox/nfqueue-go) [![GoDoc](https://godoc.org/github.com/funbox/nfqueue-go?status.svg)](https://godoc.org/github.com/funbox/nfqueue-go/nfqueue)
 
 * [Using library](#using-library)
 * [Example](#example)
