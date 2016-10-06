@@ -6,7 +6,7 @@
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include <linux/netlink.h>
 
-extern int GoCallbackWrapper(void *data, void *nfad);
+extern int goCallbackWrapper(void *data, void *nfad);
 
 int _process_loop(struct nfq_handle *h,
                   int fd,
