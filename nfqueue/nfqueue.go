@@ -172,6 +172,10 @@ func (q *Queue) SetBufferSize(size uint32) {
 	C.nfnl_rcvbufsiz(C.nfq_nfnlh(q.cH), C.uint(size))
 }
 
+func (q *Queue) SetQueueMaxlen(size uint32) {
+	C.nfq_set_queue_maxlen(q.cQh, C.u_int32_t(size))
+}
+
 // TryRun starts an infinite loop, receiving kernel events
 // and processing packets using the callback function.
 //
